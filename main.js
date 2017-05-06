@@ -78,6 +78,13 @@ class Game extends Phaser.State {
     this.stage.backgroundColor = '#17202a';
     this.physics.startSystem(Phaser.Physics.ARCADE);
   }
+  createBrick(x, y, width, height, color = 0xd7dbdd) {
+    const brick = this.add.graphics(x, y);
+    brick.beginFill(color);
+    brick.drawRect(0, 0, width, height);
+    brick.endFill();
+    return brick;
+  }
   create() {
     this.ball = this.add.graphics(400, 400);
     this.ball.beginFill(0xd7dbdd);
@@ -95,6 +102,30 @@ class Game extends Phaser.State {
     this.physics.enable(this.paddle, Phaser.Physics.ARCADE);
     this.paddle.body.collideWorldBounds = true;
     this.paddle.body.immovable = true;
+
+    const bricksColors = [0x922b21, 0x1a237e, 0x1b5e20, 0x873600];
+    this.bricks = this.add.group();
+    R.times(i =>
+      R.times(j =>
+        this.bricks.add(this.createBrick(20 + i * 77, 20 + j * 30, 67, 20, bricksColors[j])),
+        4,
+      ),
+      10,
+    );
+    this.physics.enable(this.bricks, Phaser.Physics.ARCADE);
+    this.bricks.setAll('body.immovable', true);
+    this.bricks.callAll('events.onKilled.add', 'events.onKilled', brick => {
+      brick.visible = true;
+      this.add.tween(brick)
+        .to({
+          x: brick.centerX,
+          y: brick.centerY,
+          width: 0,
+          height: 0,
+          alpha: 0,
+        }, 800, Phaser.Easing.Quartic.Out, true)
+        .onComplete.add(() => brick.kill());
+    });
   }
   update() {
     this.physics.arcade.collide(this.ball, this.paddle, () => {
@@ -105,6 +136,7 @@ class Game extends Phaser.State {
         this.physics.arcade.velocityFromAngle(upDirection + relativeDistance * 45, this.ball.body.speed, this.ball.body.velocity);
       }
     });
+    this.bricks.forEach(brick => this.physics.arcade.collide(brick, this.ball, R.invoker(0, 'kill')));
     if (this.input.keyboard.isDown(Phaser.Keyboard.LEFT)) {
       this.paddle.body.velocity.x = -300;
     } else if (this.input.keyboard.isDown(Phaser.Keyboard.RIGHT)) {
