@@ -79,21 +79,31 @@ class Game extends Phaser.State {
     this.physics.startSystem(Phaser.Physics.ARCADE);
   }
   createBrick(x, y, width, height, color = 0xd7dbdd) {
-    const brick = this.add.graphics(x, y);
-    brick.beginFill(color);
-    brick.drawRect(0, 0, width, height);
-    brick.endFill();
-    return brick;
+    return this.add.graphics(x, y).beginFill(color).drawRect(0, 0, width, height).endFill();
+  }
+  softReset() {
+    [this.ball.x, this.ball.y] = [400, 400];
+    this.physics.arcade.velocityFromAngle(70, 300, this.ball.body.velocity);
   }
   create() {
+    this.extraLives = 3;
+
     this.ball = this.add.graphics(400, 400);
-    this.ball.beginFill(0xd7dbdd);
-    this.ball.drawRect(0, 0, 10, 10);
-    this.ball.endFill();
+    this.ball.beginFill(0xd7dbdd).drawRect(0, 0, 10, 10).endFill();
     this.physics.enable(this.ball, Phaser.Physics.ARCADE);
     this.ball.body.collideWorldBounds = true;
     this.ball.body.bounce.setTo(1, 1);
     this.physics.arcade.velocityFromAngle(70, 300, this.ball.body.velocity);
+    this.ball.body.onWorldBounds = new Phaser.Signal();
+    this.ball.body.onWorldBounds.add((ball, _, down) => {
+      if (down) {
+        if (--this.extraLives >= 0) {
+          this.softReset();
+        } else {
+          this.state.start('game over');
+        }
+      }
+    });
 
     this.paddle = this.add.graphics(400, 550);
     this.paddle.beginFill(0xd7dbdd);
@@ -147,9 +157,21 @@ class Game extends Phaser.State {
   }
 }
 
+class GameOver extends Phaser.State {
+  init() {
+    this.scale.pageAlignHorizontally = true;
+    this.scale.pageAlignVertically = true;
+    this.stage.backgroundColor = '#17202a';
+  }
+  create() {
+    addText(this, 400, 100, 'Game Over', { fontSize: 80 });
+  }
+}
+
 loadFonts().then(() => {
   const game = new Phaser.Game(800, 600, Phaser.AUTO, '');
   game.state.add('intro', Intro, true);
   game.state.add('menu', Menu);
-  game.state.add('game', Game, true);
+  game.state.add('game', Game);
+  game.state.add('game over', GameOver, true);
 });
