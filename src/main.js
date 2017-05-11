@@ -1,5 +1,11 @@
-const loadFonts = function() {
-  return new Promise((resolve, reject) => {
+import 'pixi'; // eslint-disable-line
+import 'p2'; // eslint-disable-line
+import Phaser from 'phaser';
+import WebFont from 'webfontloader';
+import R from 'ramda';
+
+const loadFonts = function loadFonts() {
+  return new Promise((resolve) => {
     WebFont.load({
       active: resolve,
       google: { families: ['Play:400,700:latin-ext'] },
@@ -7,7 +13,7 @@ const loadFonts = function() {
   });
 };
 
-const addText = function(context, x, y, content, options) {
+const addText = function addText(context, x, y, content, options) {
   const text = context.add.text(x, y, content, {
     font: 'Play',
     align: 'center',
@@ -29,8 +35,10 @@ class Intro extends Phaser.State {
   create() {
     const introText = addText(this, 400, 200, 'Michał Perłakowski presents', { fontSize: 40, fill: '#ffffff' });
     introText.alpha = 0;
-    const firstTween = this.add.tween(introText).to({ alpha: 1 }, 2500, Phaser.Easing.Quartic.In, true);
-    const secondTween = this.add.tween(introText).to({ alpha: 0 }, 1500, Phaser.Easing.Quartic.Out, false, 2000);
+    const firstTween = this.add.tween(introText)
+      .to({ alpha: 1 }, 2500, Phaser.Easing.Quartic.In, true);
+    const secondTween = this.add.tween(introText)
+      .to({ alpha: 0 }, 1500, Phaser.Easing.Quartic.Out, false, 2000);
     firstTween.chain(secondTween);
     secondTween.onComplete.add(() => this.state.start('menu'));
   }
@@ -55,15 +63,17 @@ class Menu extends Phaser.State {
         break;
       case 1:
         break;
+      default:
+        break;
     }
   }
   create() {
     this.add.tween(
       addText(this, 400, -50, 'Arkanoid', { fontSize: 120 }),
     ).to({ y: 100 }, 1500, Phaser.Easing.Quartic.Out, true);
-    this.elements = ['Play', 'High Scores'].map((x, i) => addText(this, -200, 250 + 100 * i, x, { fontSize: 60 }));
+    this.elements = ['Play', 'High Scores'].map((x, i) => addText(this, -200, 250 + (100 * i), x, { fontSize: 60 }));
     this.elements.reduce((acc, x, i) =>
-      this.add.tween(x).to({ x: 400 }, 750, Phaser.Easing.Quartic.Out, true, 1000 + 500 * i),
+      this.add.tween(x).to({ x: 400 }, 750, Phaser.Easing.Quartic.Out, true, 1000 + (500 * i)),
       null,
     );
     this.elements[0].alpha = 0.5;
@@ -100,7 +110,8 @@ class Game extends Phaser.State {
     this.ball.body.onWorldBounds = new Phaser.Signal();
     this.ball.body.onWorldBounds.add((ball, _, down) => {
       if (down) {
-        if (--this.extraLives >= 0) {
+        this.extraLives -= 1;
+        if (this.extraLives >= 0) {
           this.softReset();
         } else {
           this.state.start('game over');
@@ -118,14 +129,14 @@ class Game extends Phaser.State {
     this.bricks = this.add.group();
     R.times(i =>
       R.times(j =>
-        this.bricks.add(this.createBrick(20 + i * 77, 80 + j * 30, 67, 20, bricksColors[j])),
+        this.bricks.add(this.createBrick(20 + (i * 77), 80 + (j * 30), 67, 20, bricksColors[j])),
         4,
       ),
       10,
     );
     this.physics.enable(this.bricks, Phaser.Physics.ARCADE);
     this.bricks.setAll('body.immovable', true);
-    this.bricks.callAll('events.onKilled.add', 'events.onKilled', brick => {
+    this.bricks.callAll('events.onKilled.add', 'events.onKilled', (brick) => {
       this.score += SCORE_PER_BRICK;
       brick.visible = true;
       this.add.tween(brick)
@@ -154,7 +165,11 @@ class Game extends Phaser.State {
         const distanceFromCenter = this.ball.centerX - this.paddle.centerX;
         const relativeDistance = distanceFromCenter / (this.paddle.width / 2);
         const upDirection = -90;
-        this.physics.arcade.velocityFromAngle(upDirection + relativeDistance * 45, this.ball.body.speed, this.ball.body.velocity);
+        this.physics.arcade.velocityFromAngle(
+          upDirection + (relativeDistance * 45),
+          this.ball.body.speed,
+          this.ball.body.velocity,
+        );
       }
     });
     this.bricks.forEach(brick => this.physics.arcade.collide(brick, this.ball, R.invoker(0, 'kill')));
