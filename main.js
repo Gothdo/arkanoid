@@ -18,6 +18,8 @@ const addText = function(context, x, y, content, options) {
   return text;
 };
 
+const SCORE_PER_BRICK = 10;
+
 class Intro extends Phaser.State {
   init() {
     this.scale.pageAlignHorizontally = true;
@@ -86,6 +88,7 @@ class Game extends Phaser.State {
     this.physics.arcade.velocityFromAngle(70, 300, this.ball.body.velocity);
   }
   create() {
+    this.score = 0;
     this.extraLives = 3;
 
     this.ball = this.add.graphics(400, 400);
@@ -106,9 +109,7 @@ class Game extends Phaser.State {
     });
 
     this.paddle = this.add.graphics(400, 550);
-    this.paddle.beginFill(0xd7dbdd);
-    this.paddle.drawRect(0, 0, 150, 10);
-    this.paddle.endFill();
+    this.paddle.beginFill(0xd7dbdd).drawRect(0, 0, 150, 10).endFill();
     this.physics.enable(this.paddle, Phaser.Physics.ARCADE);
     this.paddle.body.collideWorldBounds = true;
     this.paddle.body.immovable = true;
@@ -117,7 +118,7 @@ class Game extends Phaser.State {
     this.bricks = this.add.group();
     R.times(i =>
       R.times(j =>
-        this.bricks.add(this.createBrick(20 + i * 77, 20 + j * 30, 67, 20, bricksColors[j])),
+        this.bricks.add(this.createBrick(20 + i * 77, 80 + j * 30, 67, 20, bricksColors[j])),
         4,
       ),
       10,
@@ -125,6 +126,7 @@ class Game extends Phaser.State {
     this.physics.enable(this.bricks, Phaser.Physics.ARCADE);
     this.bricks.setAll('body.immovable', true);
     this.bricks.callAll('events.onKilled.add', 'events.onKilled', brick => {
+      this.score += SCORE_PER_BRICK;
       brick.visible = true;
       this.add.tween(brick)
         .to({
@@ -134,10 +136,19 @@ class Game extends Phaser.State {
           height: 0,
           alpha: 0,
         }, 800, Phaser.Easing.Quartic.Out, true)
-        .onComplete.add(() => brick.kill());
+        .onComplete.add(() => brick.destroy());
     });
+
+    this.topBar = this.add.graphics(0, 0);
+    this.topBar.beginFill(0x273746).drawRect(0, 0, 800, 60).endFill();
+    this.physics.enable(this.topBar, Phaser.Physics.ARCADE);
+    this.topBar.body.immovable = true;
+
+    this.scoreText = addText(this, 20, 35, this.score, { fontSize: 50 });
+    [this.scoreText.anchor.x, this.scoreText.anchor.y] = [0, 0.5];
   }
   update() {
+    this.physics.arcade.collide(this.ball, this.topBar);
     this.physics.arcade.collide(this.ball, this.paddle, () => {
       if (this.paddle.body.touching.up) {
         const distanceFromCenter = this.ball.centerX - this.paddle.centerX;
@@ -154,6 +165,7 @@ class Game extends Phaser.State {
     } else {
       this.paddle.body.velocity.x = 0;
     }
+    this.scoreText.text = this.score;
   }
 }
 
@@ -172,6 +184,6 @@ loadFonts().then(() => {
   const game = new Phaser.Game(800, 600, Phaser.AUTO, '');
   game.state.add('intro', Intro, true);
   game.state.add('menu', Menu);
-  game.state.add('game', Game);
-  game.state.add('game over', GameOver, true);
+  game.state.add('game', Game, true);
+  game.state.add('game over', GameOver);
 });
