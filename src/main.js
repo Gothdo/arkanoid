@@ -1,8 +1,9 @@
-import 'pixi'; // eslint-disable-line
-import 'p2'; // eslint-disable-line
-import Phaser from 'phaser';
+import 'phaser';
+import 'phaser/filters/BlurX';
+import 'phaser/filters/BlurY';
 import WebFont from 'webfontloader';
 import R from 'ramda';
+/* global Phaser */
 
 const loadFonts = function loadFonts() {
   return new Promise((resolve) => {
@@ -100,8 +101,10 @@ class Game extends Phaser.State {
   create() {
     this.score = 0;
     this.extraLives = 3;
+    this.main = this.add.group();
 
     this.ball = this.add.graphics(400, 400);
+    this.main.add(this.ball);
     this.ball.beginFill(0xd7dbdd).drawRect(0, 0, 10, 10).endFill();
     this.physics.enable(this.ball, Phaser.Physics.ARCADE);
     this.ball.body.collideWorldBounds = true;
@@ -114,12 +117,26 @@ class Game extends Phaser.State {
         if (this.extraLives >= 0) {
           this.softReset();
         } else {
-          this.state.start('game over');
+          this.ball.destroy();
+          this.blurX = this.add.filter('BlurX');
+          this.blurY = this.add.filter('BlurY');
+          this.blurX.blur = 0;
+          this.blurY.blur = 0;
+          this.add.tween(this.blurX).to({ blur: 10 }, 1000, Phaser.Easing.Quadratic.In, true);
+          this.add.tween(this.blurY).to({ blur: 10 }, 1000, Phaser.Easing.Quadratic.In, true);
+          this.cover = this.add.graphics(0, 0);
+          this.cover.beginFill(0x000000).drawRect(0, 0, 800, 600).endFill();
+          this.cover.alpha = 0;
+          this.gameOverText = addText(this, 400, -100, 'Game Over', { fontSize: 80 });
+          this.add.tween(this.cover).to({ alpha: 0.6 }, 600, Phaser.Easing.Quadratic.In, true)
+            .chain(
+              this.add.tween(this.gameOverText).to({ y: 100 }, 600, Phaser.Easing.Quadratic.InOut));
         }
       }
     });
 
     this.paddle = this.add.graphics(400, 550);
+    this.main.add(this.paddle);
     this.paddle.beginFill(0xd7dbdd).drawRect(0, 0, 150, 10).endFill();
     this.physics.enable(this.paddle, Phaser.Physics.ARCADE);
     this.paddle.body.collideWorldBounds = true;
@@ -127,6 +144,7 @@ class Game extends Phaser.State {
 
     const bricksColors = [0x922b21, 0x1a237e, 0x1b5e20, 0x873600];
     this.bricks = this.add.group();
+    this.main.add(this.bricks);
     R.times(i =>
       R.times(j =>
         this.bricks.add(this.createBrick(20 + (i * 77), 80 + (j * 30), 67, 20, bricksColors[j])),
@@ -151,11 +169,13 @@ class Game extends Phaser.State {
     });
 
     this.topBar = this.add.graphics(0, 0);
+    this.main.add(this.topBar);
     this.topBar.beginFill(0x273746).drawRect(0, 0, 800, 60).endFill();
     this.physics.enable(this.topBar, Phaser.Physics.ARCADE);
     this.topBar.body.immovable = true;
 
     this.scoreText = addText(this, 20, 35, this.score, { fontSize: 50 });
+    this.main.add(this.scoreText);
     [this.scoreText.anchor.x, this.scoreText.anchor.y] = [0, 0.5];
   }
   update() {
@@ -181,24 +201,15 @@ class Game extends Phaser.State {
       this.paddle.body.velocity.x = 0;
     }
     this.scoreText.text = this.score;
-  }
-}
-
-class GameOver extends Phaser.State {
-  init() {
-    this.scale.pageAlignHorizontally = true;
-    this.scale.pageAlignVertically = true;
-    this.stage.backgroundColor = '#17202a';
-  }
-  create() {
-    addText(this, 400, 100, 'Game Over', { fontSize: 80 });
+    if (this.blurX) {
+      this.main.filters = [this.blurX, this.blurY];
+    }
   }
 }
 
 loadFonts().then(() => {
-  const game = new Phaser.Game(800, 600, Phaser.AUTO, '');
+  const game = new Phaser.Game(800, 600, Phaser.WEBGL, '');
   game.state.add('intro', Intro, true);
   game.state.add('menu', Menu);
   game.state.add('game', Game, true);
-  game.state.add('game over', GameOver);
 });
